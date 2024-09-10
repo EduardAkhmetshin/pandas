@@ -14,6 +14,7 @@ from pandas._libs.algos import (
 )
 from pandas.compat import HAS_PYARROW
 
+import pandas as pd
 from pandas import (
     DataFrame,
     Index,
@@ -396,7 +397,7 @@ class TestRank:
         # Insert nans at random positions if underlying dtype has missing
         # value. Then adjust the expected order by adding nans accordingly
         # This is for testing whether rank calculation is affected
-        # when values are interwined with nan values.
+        # when values are intertwined with nan values.
         values = np.array(contents, dtype=dtype)
         exp_order = np.array(range(len(values)), dtype="float64") + 1.0
         if dtype in dtype_na_map:
@@ -502,14 +503,13 @@ class TestRank:
         result = df.rank(numeric_only=True)
         tm.assert_frame_equal(result, expected)
 
-    @pytest.mark.parametrize(
-        "dtype, exp_dtype",
-        [("string[pyarrow]", "Int64"), ("string[pyarrow_numpy]", "float64")],
-    )
-    def test_rank_string_dtype(self, dtype, exp_dtype):
+    def test_rank_string_dtype(self, string_dtype_no_object):
         # GH#55362
-        pytest.importorskip("pyarrow")
-        obj = Series(["foo", "foo", None, "foo"], dtype=dtype)
+        obj = Series(["foo", "foo", None, "foo"], dtype=string_dtype_no_object)
         result = obj.rank(method="first")
+        exp_dtype = "Int64" if string_dtype_no_object.na_value is pd.NA else "float64"
+        if string_dtype_no_object.storage == "python":
+            # TODO nullable string[python] should also return nullable Int64
+            exp_dtype = "float64"
         expected = Series([1, 2, None, 3], dtype=exp_dtype)
         tm.assert_series_equal(result, expected)
